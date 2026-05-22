@@ -708,6 +708,7 @@ window.createRoom = async function() {
     predictActive: false,
     resultType: null, // hit|homer|out
     resultBase: null,
+    usedBases: [],   // アウトになった塁（ヒットが出るまで選択不可）
     turn: 0, // pitcher player index
   };
 
@@ -810,13 +811,22 @@ function renderGame() {
     if (iAmPitcher) {
       phaseInfo.innerHTML = `<span class="role-tag tag-pitcher">PITCHER</span>◎を置く塁を選んでください`;
       pitcherUI.style.display = 'flex';
-      confirmBtn.style.display = gs.pitcherBase !== null ? 'block' : 'none';
-      // スロット表示
+      confirmBtn.style.display = pitcherSelection !== null ? 'block' : 'none';
+      // スロット表示（usedBasesは選択不可）
+      const usedBases = gs.usedBases || [];
+      const SLOT_NAMES = ['1塁', '2塁', '3塁', '本塁（HR）'];
       for (let i = 0; i < 4; i++) {
         const slot = document.getElementById(`slot-${i}`);
         slot.className = 'pitcher-slot';
-        if (pitcherSelection === i) {
-          slot.classList.add(i === 3 ? 'selected-hit' : 'selected-hit');
+        if (usedBases.includes(i)) {
+          slot.style.opacity = '0.3';
+          slot.style.pointerEvents = 'none';
+          slot.textContent = SLOT_NAMES[i];
+        } else {
+          slot.style.opacity = '1';
+          slot.style.pointerEvents = 'auto';
+          slot.textContent = SLOT_NAMES[i];
+          if (pitcherSelection === i) slot.classList.add('selected-hit');
         }
       }
     } else {
@@ -835,21 +845,29 @@ function renderGame() {
     }
   } else if (gs.phase === 'batter_select') {
     if (iAmBatter) {
+      const usedBases = gs.usedBases || [];
+      // base-1=0, base-2=1, base-3=2, base-home=3 の対応
+      const BTN_IDX = { 'base-1': 0, 'base-2': 1, 'base-3': 2, 'base-home': 3 };
       phaseInfo.innerHTML = `<span class="role-tag tag-batter">BATTER</span>カバーを1つ選んでください`;
-      // 塁ボタン有効化
       ['base-home','base-1','base-2','base-3'].forEach(id => {
-        document.getElementById(id).disabled = false;
+        const el = document.getElementById(id);
+        const isUsed = usedBases.includes(BTN_IDX[id]);
+        el.disabled = isUsed;
+        el.style.opacity = isUsed ? '0.3' : '1';
+        if (isUsed) el.querySelector('span').textContent = BASE_NAMES[BTN_IDX[id]] + '\n×';
       });
     } else {
       phaseInfo.innerHTML = `<span class="role-tag tag-pitcher">PITCHER</span>バッターが選択中<span class="waiting-dots"></span>`;
     }
   } else if (gs.phase === 'result') {
     showResult(gs);
-  } else if (gs.phase === 'inning_change') {
+  } else {
+    // result以外のphaseになったらオーバーレイを閉じる（ピッチャー側の自動クローズ）
+    document.getElementById('result-overlay').classList.remove('show');
+  }
+
+  if (gs.phase === 'inning_change') {
     phaseInfo.innerHTML = `イニング交代 — タップして続ける`;
-    if (myId === batterIdx) {
-      // 誰でも続けられる
-    }
   }
 }
 
@@ -957,7 +975,9 @@ window.closeResult = async function() {
   const gs = gameState;
 
   const batterIdx = gs.topBottom === 0 ? 0 : 1;
-  const pitcherIdx = gs.topBottom === 0 ? 1 : 0;
+
+  // バッター側だけがDB更新する（ピッチャー側は画面を閉じるだけ）
+  if (myId !== batterIdx) return;
 
   let runners = [...(gs.runners || [false,false,false])];
   let outs = gs.outs;
@@ -965,27 +985,59 @@ window.closeResult = async function() {
   let score1 = gs.players[1].score;
   let inning = gs.inning;
   let topBottom = gs.topBottom;
-  let phase = 'pitcher_place';
+  let usedBases = [...(gs.usedBases || [])];
   let scored = 0;
+  let phase;
 
   if (gs.resultType === 'out') {
+    // アウト：選んだ塁をusedBasesに追加、ピッチャーはそのまま→batter_selectへ
     outs++;
+    usedBases.push(gs.selectedBase);
+
+    if (outs >= 3) {
+      // 3アウト：攻守交代
+      outs = 0;
+      runners = [false, false, false];
+      usedBases = [];
+      if (topBottom === 0) {
+        topBottom = 1;
+      } else {
+        if (inning >= 3) {
+          if (score0 === score1) {
+            inning++;
+            topBottom = 0;
+            runners = [false, true, false]; // 延長：ノーアウト2塁スタート
+          } else {
+            phase = 'gameover';
+          }
+        } else {
+          inning++;
+          topBottom = 0;
+        }
+      }
+      if (!phase) phase = 'pitcher_place'; // 攻守交代→ピッチャーが配置し直す
+    } else {
+      // アウトだがまだ続く→ピッチャーはそのまま、バッターが選び直す
+      phase = 'batter_select';
+    }
+
   } else if (gs.resultType === 'homer') {
-    // 全ランナー生還
+    // ホームラン：全ランナー生還、usedBasesリセット→ピッチャーが置き直す
     scored = runners.filter(Boolean).length + 1;
     runners = [false, false, false];
+    usedBases = [];
+    phase = 'pitcher_place';
+
   } else {
-    // ヒット
+    // ヒット：ランナー進塁、usedBasesリセット→ピッチャーが置き直す
     const hitBase = gs.resultBase; // 0=1塁,1=2塁,2=3塁
     const hasRunner = runners.some(Boolean);
     if (!hasRunner) {
-      // ランナーなし：バッターがヒットした塁数ぶん進む
-      let newRunners = [false,false,false];
+      let newRunners = [false, false, false];
       if (hitBase < 3) newRunners[hitBase] = true;
       runners = newRunners;
     } else {
-      // ランナーあり：押し出し式（全ランナーが1つだけ進む）
-      let newRunners = [false,false,false];
+      let newRunners = [false, false, false];
       for (let i = 2; i >= 0; i--) {
         if (runners[i]) {
           const newPos = i + 1;
@@ -993,42 +1045,16 @@ window.closeResult = async function() {
           else newRunners[newPos] = true;
         }
       }
-      newRunners[0] = true; // バッターは1塁へ
+      newRunners[0] = true;
       runners = newRunners;
     }
+    usedBases = [];
+    phase = 'pitcher_place';
   }
 
   // 得点加算
   if (batterIdx === 0) score0 += scored;
   else score1 += scored;
-
-  // 3アウト判定
-  if (outs >= 3) {
-    outs = 0;
-    runners = [false,false,false];
-    if (topBottom === 0) {
-      topBottom = 1;
-      phase = 'pitcher_place';
-    } else {
-      // イニング終了
-      if (inning >= 3) {
-        // ゲーム終了 or 延長
-        if (score0 === score1) {
-          // 延長: ノーアウト2塁スタート
-          inning++;
-          topBottom = 0;
-          runners = [false,true,false];
-          phase = 'pitcher_place';
-        } else {
-          phase = 'gameover';
-        }
-      } else {
-        inning++;
-        topBottom = 0;
-        phase = 'pitcher_place';
-      }
-    }
-  }
 
   const updates = {
     phase,
@@ -1036,7 +1062,7 @@ window.closeResult = async function() {
     runners,
     inning,
     topBottom,
-    pitcherBase: null,
+    usedBases,
     resultType: null,
     resultBase: null,
     selectedBase: null,
@@ -1045,10 +1071,12 @@ window.closeResult = async function() {
     'players/1/score': score1,
   };
 
-  // ピッチャー交代に応じてturn更新
+  // pitcher_place時のみpitcherBaseをリセット＆turn更新
   if (phase === 'pitcher_place') {
+    updates.pitcherBase = null;
     updates.turn = topBottom === 0 ? 1 : 0;
   }
+  // batter_select時はpitcherBase（◎の位置）をそのまま維持
 
   await update(ref(db, `rooms/${roomId}`), updates);
 };
