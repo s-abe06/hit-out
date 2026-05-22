@@ -613,6 +613,8 @@
       </div>
       <button class="btn btn-primary" id="pitcher-confirm" onclick="confirmPlacement()">配置を確定する</button>
     </div>
+    <!-- バッター確定ボタン -->
+    <button class="btn btn-primary" id="batter-confirm" onclick="confirmBatterSelect()" style="display:none;margin-top:8px">⚾ これで確定する</button>
   </div>
 
 </div>
@@ -708,6 +710,7 @@ window.createRoom = async function() {
     predictActive: false,
     resultType: null, // hit|homer|out
     resultBase: null,
+    pendingBase: null, // バッターが選択中（未確定）の塁
     usedBases: [],   // アウトになった塁（ヒットが出るまで選択不可）
     turn: 0, // pitcher player index
   };
@@ -809,6 +812,7 @@ function renderGame() {
   const confirmBtn = document.getElementById('pitcher-confirm');
 
   pitcherUI.style.display = 'none';
+  document.getElementById('batter-confirm').style.display = 'none';
   predictBtn.style.display = 'none';
 
   if (gs.phase === 'pitcher_place') {
@@ -848,22 +852,63 @@ function renderGame() {
       }
     }
   } else if (gs.phase === 'batter_select') {
+    const batterConfirmBtn = document.getElementById('batter-confirm');
     if (iAmBatter) {
       const usedBases = gs.usedBases ? Object.values(gs.usedBases) : [];
       const BTN_IDX = { 'base-1': 0, 'base-2': 1, 'base-3': 2, 'base-home': 3 };
       const BASE_LABEL = { 'base-1': '1塁\n⬡', 'base-2': '2塁\n⬡', 'base-3': '3塁\n⬡', 'base-home': '本塁\n⬡' };
-      phaseInfo.innerHTML = `<span class="role-tag tag-batter">BATTER</span>カバーを1つ選んでください`;
+      phaseInfo.innerHTML = `<span class="role-tag tag-batter">BATTER</span>配置完了！タップして選んでください`;
+      let selectedCount = 0;
       ['base-home','base-1','base-2','base-3'].forEach(id => {
         const el = document.getElementById(id);
-        const isUsed = usedBases.includes(BTN_IDX[id]);
+        const idx = BTN_IDX[id];
+        const isUsed = usedBases.includes(idx);
+        const isPending = gs.pendingBase === idx;
         el.disabled = isUsed;
         el.style.opacity = isUsed ? '0.3' : '1';
-        el.querySelector('span').textContent = isUsed ? (BASE_NAMES[BTN_IDX[id]] + '\n×') : BASE_LABEL[id];
+        el.classList.remove('revealed-hit','revealed-out');
+        if (isPending) {
+          el.classList.add('revealed-hit');
+          selectedCount++;
+        }
+        el.querySelector('span').textContent = isUsed ? (BASE_NAMES[idx] + '\n×') : BASE_LABEL[id];
       });
+      batterConfirmBtn.style.display = (gs.pendingBase !== null && gs.pendingBase !== undefined) ? 'block' : 'none';
     } else {
-      phaseInfo.innerHTML = `<span class="role-tag tag-pitcher">PITCHER</span>バッターが選択中<span class="waiting-dots"></span>`;
+      // ピッチャー側：バッターが選択中の塁をリアルタイムハイライト
+      batterConfirmBtn.style.display = 'none';
+      const BTN_IDS = ['base-1', 'base-2', 'base-3', 'base-home'];
+      const pending = gs.pendingBase;
+      BTN_IDS.forEach((id, idx) => {
+        const el = document.getElementById(id);
+        el.classList.remove('revealed-hit','revealed-out');
+        el.style.opacity = '1';
+        if (pending === idx) {
+          el.classList.add('revealed-hit');
+        }
+      });
+      if (pending !== null && pending !== undefined) {
+        phaseInfo.innerHTML = `<span class="role-tag tag-pitcher">PITCHER</span>バッターは <strong>${BASE_NAMES[pending]}</strong> を検討中…`;
+      } else {
+        phaseInfo.innerHTML = `<span class="role-tag tag-pitcher">PITCHER</span>バッターが選択中<span class="waiting-dots"></span>`;
+      }
     }
   } else if (gs.phase === 'result') {
+    // ピッチャー側：バッターが選んだ塁をフィールドでハイライト
+    if (iAmPitcher && gs.selectedBase !== null && gs.selectedBase !== undefined) {
+      const BTN_IDS = ['base-1', 'base-2', 'base-3', 'base-home'];
+      const selectedId = BTN_IDS[gs.selectedBase];
+      if (selectedId) {
+        const el = document.getElementById(selectedId);
+        el.style.opacity = '1';
+        if (gs.resultType === 'out') {
+          el.classList.add('revealed-out');
+        } else {
+          el.classList.add('revealed-hit');
+        }
+      }
+      phaseInfo.innerHTML = `<span class="role-tag tag-pitcher">PITCHER</span>バッターは ${BASE_NAMES[gs.selectedBase]} を選択`;
+    }
     showResult(gs);
   } else {
     // result以外のphaseになったらオーバーレイを閉じる（ピッチャー側の自動クローズ）
@@ -909,6 +954,7 @@ window.predictHomerun = async function() {
 // base-home=3(本塁), base-1=0(1塁), base-2=1(2塁), base-3=2(3塁)
 const BASE_BTN_MAP = { 'base-home': 3, 'base-1': 0, 'base-2': 1, 'base-3': 2 };
 
+// バッターが塁をタップ→トグル選択（未確定）
 window.selectBase = async function(btnBaseIdx) {
   if (!gameState) return;
   const gs = gameState;
@@ -916,14 +962,30 @@ window.selectBase = async function(btnBaseIdx) {
   if (myId !== batterIdx) return;
   if (gs.phase !== 'batter_select') return;
 
-  const selected = btnBaseIdx; // 0=1塁,1=2塁,2=3塁,3=本塁
+  const usedBases = gs.usedBases ? Object.values(gs.usedBases) : [];
+  if (usedBases.includes(btnBaseIdx)) return; // アウト済みは選択不可
+
+  // トグル：同じ塁を再タップで解除
+  const newPending = gs.pendingBase === btnBaseIdx ? null : btnBaseIdx;
+  await update(ref(db, `rooms/${roomId}`), { pendingBase: newPending });
+};
+
+// バッターが確定ボタンを押す
+window.confirmBatterSelect = async function() {
+  if (!gameState) return;
+  const gs = gameState;
+  const batterIdx = gs.topBottom === 0 ? 0 : 1;
+  if (myId !== batterIdx) return;
+  if (gs.phase !== 'batter_select') return;
+  if (gs.pendingBase === null || gs.pendingBase === undefined) return;
+
+  const selected = gs.pendingBase;
   const hitBase = gs.pitcherBase;
   const isHit = selected === hitBase;
   const isHomer = isHit && hitBase === 3;
   const predictActive = gs.predictActive;
 
-  // 予告ホームラン処理
-  let resultType, advanceBases;
+  let resultType;
   if (isHomer) {
     resultType = 'homer';
   } else if (isHit) {
@@ -932,20 +994,19 @@ window.selectBase = async function(btnBaseIdx) {
     resultType = 'out';
   }
 
-  // 予告ホームラン：◎がヒットかつ宣言中なら即ホームラン
+  // 予告ホームラン処理
   if (predictActive && isHit && !isHomer) {
     resultType = 'homer';
-    // 予告使用済み
     await update(ref(db, `rooms/${roomId}/players/${batterIdx}`), { predictHR: true });
   } else if (predictActive && isHomer) {
     await update(ref(db, `rooms/${roomId}/players/${batterIdx}`), { predictHR: true });
   }
 
   await update(ref(db, `rooms/${roomId}`), {
-    phase: 'result',
     resultType: resultType,
     resultBase: hitBase,
     selectedBase: selected,
+    pendingBase: null,
     predictActive: false,
   });
 };
@@ -1080,6 +1141,7 @@ window.closeResult = async function() {
     resultType: null,
     resultBase: null,
     selectedBase: null,
+    pendingBase: null,
     predictActive: false,
     'players/0/score': score0,
     'players/1/score': score1,
