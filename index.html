@@ -846,15 +846,15 @@ function renderGame() {
   } else if (gs.phase === 'batter_select') {
     if (iAmBatter) {
       const usedBases = gs.usedBases || [];
-      // base-1=0, base-2=1, base-3=2, base-home=3 の対応
       const BTN_IDX = { 'base-1': 0, 'base-2': 1, 'base-3': 2, 'base-home': 3 };
+      const BASE_LABEL = { 'base-1': '1塁\n⬡', 'base-2': '2塁\n⬡', 'base-3': '3塁\n⬡', 'base-home': '本塁\n⬡' };
       phaseInfo.innerHTML = `<span class="role-tag tag-batter">BATTER</span>カバーを1つ選んでください`;
       ['base-home','base-1','base-2','base-3'].forEach(id => {
         const el = document.getElementById(id);
         const isUsed = usedBases.includes(BTN_IDX[id]);
         el.disabled = isUsed;
         el.style.opacity = isUsed ? '0.3' : '1';
-        if (isUsed) el.querySelector('span').textContent = BASE_NAMES[BTN_IDX[id]] + '\n×';
+        el.querySelector('span').textContent = isUsed ? (BASE_NAMES[BTN_IDX[id]] + '\n×') : BASE_LABEL[id];
       });
     } else {
       phaseInfo.innerHTML = `<span class="role-tag tag-pitcher">PITCHER</span>バッターが選択中<span class="waiting-dots"></span>`;
@@ -1033,14 +1033,15 @@ window.closeResult = async function() {
     const hitBase = gs.resultBase; // 0=1塁, 1=2塁, 2=3塁
     let newRunners = [false, false, false];
 
-    // 既存ランナーの処理：バッターが自分の塁と同じか追い越す場合のみ押し出し（+1）
+    // 既存ランナーの処理：バッターが自分の塁と同じか追い越す場合→hitBase+1の塁へ
+    // バッターが届かない場合→動かない
     for (let i = 2; i >= 0; i--) {
       if (runners[i]) {
         if (hitBase >= i) {
-          // バッターが自分の塁に来る→押し出しで+1
-          const newPos = i + 1;
-          if (newPos >= 3) scored++; // 3塁ランナーが生還
-          else newRunners[newPos] = true;
+          // 押し出し：バッターの1つ先（hitBase+1）へ移動
+          const dest = hitBase + 1; // 例：2塁ヒット(hitBase=1)なら dest=2(3塁)
+          if (dest >= 3) scored++;  // dest=3以上で生還（得点）
+          else newRunners[dest] = true;
         } else {
           // バッターが届かない→動かない
           newRunners[i] = true;
