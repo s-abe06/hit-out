@@ -1137,17 +1137,18 @@ window.closeResult = async function() {
     const hitBase = gs.resultBase; // 0=1塁, 1=2塁, 2=3塁
     let newRunners = [false, false, false];
 
-    // 既存ランナーの処理：バッターが自分の塁と同じか追い越す場合→hitBase+1の塁へ
-    // バッターが届かない場合→動かない
+    // 既存ランナーの処理
+    // hitBase >= i のときのみ押し出し、移動先は hitBase+1（固定）
+    // 移動先が埋まっている場合は連鎖してさらに+1押し出し
     for (let i = 2; i >= 0; i--) {
       if (runners[i]) {
         if (hitBase >= i) {
-          // 押し出し：バッターの1つ先（hitBase+1）へ移動
-          const dest = hitBase + 1; // 例：2塁ヒット(hitBase=1)なら dest=2(3塁)
-          if (dest >= 3) scored++;  // dest=3以上で生還（得点）
+          // 押し出し：移動先 hitBase+1 から連鎖で空き塁を探す
+          let dest = hitBase + 1;
+          while (dest < 3 && newRunners[dest]) dest++;
+          if (dest >= 3) scored++;
           else newRunners[dest] = true;
         } else {
-          // バッターが届かない→動かない
           newRunners[i] = true;
         }
       }
