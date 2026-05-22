@@ -309,6 +309,11 @@
     100% { transform: scale(1); opacity: 1; }
   }
 
+  @keyframes sparkle {
+    0% { transform: scale(1) translateY(0); opacity: 1; }
+    100% { transform: scale(0) translateY(-60px); opacity: 0; }
+  }
+
   /* ===== PREDICT HR ===== */
   #predict-hr-btn {
     display: none;
@@ -628,14 +633,40 @@
 
 <!-- ===== GAME OVER ===== -->
 <div id="gameover-screen" class="screen">
-  <div class="card">
-    <div id="winner-text">-</div>
-    <div style="margin-top:12px;font-size:0.85rem;color:var(--gray)">最終スコア</div>
-    <table class="score-table" style="margin-top:8px">
-      <tr><th id="go-p0-name">-</th><th>vs</th><th id="go-p1-name">-</th></tr>
-      <tr><td id="go-p0-score">0</td><td></td><td id="go-p1-score">0</td></tr>
-    </table>
-    <button class="btn btn-secondary" onclick="backToLobby()" style="margin-top:16px">ロビーに戻る</button>
+  <div style="width:100%;max-width:420px;padding:20px;display:flex;flex-direction:column;align-items:center;gap:20px;">
+
+    <!-- 花火エフェクト -->
+    <div id="fireworks" style="position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;"></div>
+
+    <!-- 勝者表示 -->
+    <div style="text-align:center;position:relative;z-index:1;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:6px;color:var(--gray);margin-bottom:6px">GAME OVER</div>
+      <div id="winner-text" style="font-family:'Bebas Neue',sans-serif;font-size:2.8rem;letter-spacing:4px;color:var(--gold);text-shadow:0 0 30px rgba(241,196,15,0.5);line-height:1.1;">-</div>
+      <div id="winner-sub" style="font-size:0.85rem;color:var(--gray);margin-top:4px;"></div>
+    </div>
+
+    <!-- スコアカード -->
+    <div style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:20px;position:relative;z-index:1;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <!-- P0 -->
+        <div style="text-align:center;flex:1;">
+          <div id="go-p0-name" style="font-size:0.8rem;color:var(--gray);margin-bottom:4px;">-</div>
+          <div id="go-p0-score" style="font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--cream);line-height:1;">0</div>
+          <div id="go-p0-tag" style="font-size:0.7rem;margin-top:4px;"></div>
+        </div>
+        <!-- VS -->
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--gray);padding:0 12px;">VS</div>
+        <!-- P1 -->
+        <div style="text-align:center;flex:1;">
+          <div id="go-p1-name" style="font-size:0.8rem;color:var(--gray);margin-bottom:4px;">-</div>
+          <div id="go-p1-score" style="font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--cream);line-height:1;">0</div>
+          <div id="go-p1-tag" style="font-size:0.7rem;margin-top:4px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ボタン -->
+    <button class="btn btn-primary" onclick="backToLobby()" style="max-width:280px;position:relative;z-index:1;">もう一度プレイ</button>
   </div>
 </div>
 
@@ -1070,9 +1101,12 @@ window.closeResult = async function() {
       runners = [false, false, false];
       usedBases = [];
       if (topBottom === 0) {
+        // 表終了→必ず裏へ（先攻がリードしていても裏をプレイ）
         topBottom = 1;
       } else {
+        // 裏終了
         if (inning >= 3) {
+          // 3回裏終了：同点なら延長、それ以外はゲーム終了
           if (score0 === score1) {
             inning++;
             topBottom = 0;
@@ -1085,7 +1119,7 @@ window.closeResult = async function() {
           topBottom = 0;
         }
       }
-      if (!phase) phase = 'pitcher_place'; // 攻守交代→ピッチャーが配置し直す
+      if (!phase) phase = 'pitcher_place';
     } else {
       // アウトだがまだ続く→ピッチャーはそのまま、バッターが選び直す
       phase = 'batter_select';
@@ -1168,15 +1202,67 @@ function renderGameOver() {
   const p1 = gs.players[1];
   document.getElementById('go-p0-name').textContent = p0.name;
   document.getElementById('go-p1-name').textContent = p1.name;
-  document.getElementById('go-p0-score').textContent = p0.score;
-  document.getElementById('go-p1-score').textContent = p1.score;
 
-  let winner;
-  if (p0.score > p1.score) winner = `${p0.name} の勝利！`;
-  else if (p1.score > p0.score) winner = `${p1.name} の勝利！`;
-  else winner = '引き分け';
-  document.getElementById('winner-text').textContent = winner;
+  const s0El = document.getElementById('go-p0-score');
+  const s1El = document.getElementById('go-p1-score');
+  s0El.textContent = p0.score;
+  s1El.textContent = p1.score;
+
+  const tag0 = document.getElementById('go-p0-tag');
+  const tag1 = document.getElementById('go-p1-tag');
+
+  let winnerText, winnerSub;
+  if (p0.score > p1.score) {
+    winnerText = `🏆 ${p0.name} の勝利！`;
+    winnerSub = `${p0.score} - ${p1.score}`;
+    s0El.style.color = 'var(--gold)';
+    s0El.style.textShadow = '0 0 20px rgba(241,196,15,0.6)';
+    tag0.innerHTML = `<span style="background:var(--gold);color:var(--dark);padding:2px 10px;border-radius:20px;font-weight:700;">WIN</span>`;
+    tag1.innerHTML = `<span style="color:var(--gray);">LOSE</span>`;
+  } else if (p1.score > p0.score) {
+    winnerText = `🏆 ${p1.name} の勝利！`;
+    winnerSub = `${p1.score} - ${p0.score}`;
+    s1El.style.color = 'var(--gold)';
+    s1El.style.textShadow = '0 0 20px rgba(241,196,15,0.6)';
+    tag1.innerHTML = `<span style="background:var(--gold);color:var(--dark);padding:2px 10px;border-radius:20px;font-weight:700;">WIN</span>`;
+    tag0.innerHTML = `<span style="color:var(--gray);">LOSE</span>`;
+  } else {
+    winnerText = '引き分け';
+    winnerSub = `${p0.score} - ${p1.score}`;
+    tag0.innerHTML = `<span style="color:var(--gray);">DRAW</span>`;
+    tag1.innerHTML = `<span style="color:var(--gray);">DRAW</span>`;
+  }
+  document.getElementById('winner-text').textContent = winnerText;
+  document.getElementById('winner-sub').textContent = winnerSub;
+
+  // 花火アニメーション（勝利時のみ）
+  if (p0.score !== p1.score) launchFireworks();
 }
+
+function launchFireworks() {
+  const container = document.getElementById('fireworks');
+  container.innerHTML = '';
+  const colors = ['#f1c40f','#2d8a44','#e74c3c','#3498db','#9b59b6','#f39c12'];
+  for (let i = 0; i < 30; i++) {
+    setTimeout(() => {
+      const spark = document.createElement('div');
+      const x = Math.random() * 100;
+      const y = Math.random() * 60;
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const size = 6 + Math.random() * 8;
+      spark.style.cssText = `
+        position:absolute;left:${x}%;top:${y}%;
+        width:${size}px;height:${size}px;
+        background:${color};border-radius:50%;
+        animation:sparkle 1s ease-out forwards;
+        box-shadow:0 0 ${size*2}px ${color};
+      `;
+      container.appendChild(spark);
+      setTimeout(() => spark.remove(), 1000);
+    }, i * 120);
+  }
+}
+
 
 window.backToLobby = async function() {
   if (unsubscribe) unsubscribe();
