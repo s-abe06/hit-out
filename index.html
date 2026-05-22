@@ -1003,6 +1003,7 @@ window.confirmBatterSelect = async function() {
   }
 
   await update(ref(db, `rooms/${roomId}`), {
+    phase: 'result',
     resultType: resultType,
     resultBase: hitBase,
     selectedBase: selected,
