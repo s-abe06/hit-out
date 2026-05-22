@@ -1030,24 +1030,27 @@ window.closeResult = async function() {
 
   } else {
     // ヒット：ランナー進塁、usedBasesリセット→ピッチャーが置き直す
-    const hitBase = gs.resultBase; // 0=1塁,1=2塁,2=3塁
-    const hasRunner = runners.some(Boolean);
-    if (!hasRunner) {
-      let newRunners = [false, false, false];
-      if (hitBase < 3) newRunners[hitBase] = true;
-      runners = newRunners;
-    } else {
-      let newRunners = [false, false, false];
-      for (let i = 2; i >= 0; i--) {
-        if (runners[i]) {
+    const hitBase = gs.resultBase; // 0=1塁, 1=2塁, 2=3塁
+    let newRunners = [false, false, false];
+
+    // 既存ランナーの処理：バッターが自分の塁と同じか追い越す場合のみ押し出し（+1）
+    for (let i = 2; i >= 0; i--) {
+      if (runners[i]) {
+        if (hitBase >= i) {
+          // バッターが自分の塁に来る→押し出しで+1
           const newPos = i + 1;
-          if (newPos >= 3) scored++;
+          if (newPos >= 3) scored++; // 3塁ランナーが生還
           else newRunners[newPos] = true;
+        } else {
+          // バッターが届かない→動かない
+          newRunners[i] = true;
         }
       }
-      newRunners[0] = true;
-      runners = newRunners;
     }
+
+    // バッターはヒットした塁へ
+    newRunners[hitBase] = true;
+    runners = newRunners;
     usedBases = [];
     phase = 'pitcher_place';
   }
