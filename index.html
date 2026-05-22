@@ -503,8 +503,8 @@
     <div class="rules-section">
       <h3>ランナーの進め方</h3>
       <ul>
-        <li><strong>ノーアウトのとき</strong>：全ランナーがヒットした塁数ぶん進む（通常の野球と同じ）</li>
-        <li><strong>アウトがあるとき</strong>：押し出し式でのみランナーが1つ進む</li>
+        <li><strong>ランナーなしのとき</strong>：バッターがヒットした塁数ぶん進む（1塁ヒットなら1塁、2塁ヒットなら2塁へ）</li>
+        <li><strong>ランナーがいるとき</strong>：押し出し式でのみ進む（全ランナーが1つだけ進み、3塁ランナーは生還して得点）</li>
       </ul>
     </div>
 
@@ -977,22 +977,14 @@ window.closeResult = async function() {
   } else {
     // ヒット
     const hitBase = gs.resultBase; // 0=1塁,1=2塁,2=3塁
-    // ノーアウトなら全ランナー押し出し, アウトありなら押し出し式
-    if (outs === 0) {
-      // 全ランナー hitBase分進む
+    const hasRunner = runners.some(Boolean);
+    if (!hasRunner) {
+      // ランナーなし：バッターがヒットした塁数ぶん進む
       let newRunners = [false,false,false];
-      for (let i = 2; i >= 0; i--) {
-        if (runners[i]) {
-          const newPos = i + hitBase + 1;
-          if (newPos >= 3) scored++;
-          else newRunners[newPos] = true;
-        }
-      }
-      // バッター自身
       if (hitBase < 3) newRunners[hitBase] = true;
       runners = newRunners;
     } else {
-      // 押し出し式
+      // ランナーあり：押し出し式（全ランナーが1つだけ進む）
       let newRunners = [false,false,false];
       for (let i = 2; i >= 0; i--) {
         if (runners[i]) {
@@ -1001,7 +993,7 @@ window.closeResult = async function() {
           else newRunners[newPos] = true;
         }
       }
-      newRunners[0] = true; // バッターは1塁
+      newRunners[0] = true; // バッターは1塁へ
       runners = newRunners;
     }
   }
