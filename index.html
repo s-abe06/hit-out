@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hit & Out</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@400;700&display=swap');
+
+  :root {
+    --green: #1a5c2a;
+    --green-light: #2d8a44;
+    --dirt: #c8843a;
+    --dirt-light: #e8a85a;
+    --cream: #f5f0e8;
+    --dark: #0f1a10;
+    --white: #ffffff;
+    --red: #c0392b;
+    --gold: #f1c40f;
+    --gray: #888;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--dark);
+    color: var(--cream);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    width: 100%;
+    text-align: center;
+    padding: 18px 0 8px;
+    background: linear-gradient(180deg, #0a120b 0%, transparent 100%);
+  }
+  header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    letter-spacing: 6px;
+    color: var(--gold);
+    text-shadow: 0 0 30px rgba(241,196,15,0.4);
+  }
+  #status-bar {
+    font-size: 0.8rem;
+    color: var(--gray);
+    margin-top: 2px;
+    min-height: 18px;
+  }
+
+  /* ===== SCREENS ===== */
+  .screen { display: none; width: 100%; max-width: 480px; padding: 16px; }
+  .screen.active { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+  /* ===== LOBBY ===== */
+  .card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 20px;
+    width: 100%;
+    text-align: center;
+  }
+  .card h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 3px;
+    color: var(--gold);
+    margin-bottom: 12px;
+  }
+  .btn {
+    display: inline-block;
+    padding: 12px 28px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .btn-primary { background: var(--gold); color: var(--dark); }
+  .btn-primary:hover { background: #f9d54a; transform: translateY(-1px); }
+  .btn-secondary { background: transparent; color: var(--cream); border: 1px solid rgba(255,255,255,0.3); }
+  .btn-secondary:hover { background: rgba(255,255,255,0.08); }
+  .btn-danger { background: var(--red); color: white; }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08);
+    color: var(--cream);
+    font-size: 1rem;
+    font-family: 'Noto Sans JP', sans-serif;
+    margin-bottom: 8px;
+    text-align: center;
+    letter-spacing: 3px;
+  }
+  input[type="text"]:focus { outline: none; border-color: var(--gold); }
+
+  .room-code {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    letter-spacing: 10px;
+    color: var(--gold);
+    text-align: center;
+    padding: 10px;
+    background: rgba(241,196,15,0.08);
+    border-radius: 8px;
+    cursor: pointer;
+    margin: 8px 0;
+  }
+  .room-code:hover { background: rgba(241,196,15,0.15); }
+  .copy-hint { font-size: 0.72rem; color: var(--gray); }
+
+  /* ===== SCOREBOARD ===== */
+  #scoreboard {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+  }
+  .score-player { text-align: center; flex: 1; }
+  .score-name { color: var(--gray); font-size: 0.72rem; margin-bottom: 2px; }
+  .score-pts {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 2px;
+    color: var(--cream);
+  }
+  .score-pts.active { color: var(--gold); }
+  .score-mid { text-align: center; padding: 0 10px; }
+  .inning-label { font-family: 'Bebas Neue', sans-serif; font-size: 0.9rem; color: var(--gray); letter-spacing: 2px; }
+  .inning-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--cream); letter-spacing: 2px; display: block; }
+
+  /* ===== OUT COUNTERS ===== */
+  #out-counter {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .out-circle {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--gray);
+    background: transparent;
+    transition: all 0.3s;
+  }
+  .out-circle.lit { background: var(--red); border-color: var(--red); box-shadow: 0 0 10px rgba(192,57,43,0.6); }
+
+  /* ===== FIELD ===== */
+  #field-wrap {
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 340px;
+    position: relative;
+  }
+  #field-svg { width: 100%; height: 100%; }
+
+  /* ===== BASES & RUNNERS ===== */
+  .base-btn {
+    position: absolute;
+    width: 56px; height: 56px;
+    border-radius: 8px;
+    border: 2px solid rgba(255,255,255,0.25);
+    background: rgba(200,132,58,0.3);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    color: var(--cream);
+    transition: all 0.2s;
+    transform: rotate(45deg);
+    overflow: hidden;
+  }
+  .base-btn > span { transform: rotate(-45deg); display: block; text-align: center; line-height: 1.2; }
+  .base-btn:hover:not(:disabled) { border-color: var(--gold); background: rgba(241,196,15,0.2); }
+  .base-btn:disabled { cursor: default; opacity: 0.7; }
+  .base-btn.has-runner { background: rgba(255,255,255,0.15); border-color: white; }
+  .base-btn.revealed-hit { background: rgba(45,138,68,0.5); border-color: var(--green-light); }
+  .base-btn.revealed-out { background: rgba(192,57,43,0.4); border-color: var(--red); }
+  .base-btn.homer { background: rgba(241,196,15,0.4); border-color: var(--gold); }
+
+  /* ダイヤ配置 */
+  /* home:下中央, 1塁:右中央, 2塁:上中央, 3塁:左中央 */
+  #base-home { bottom: 4%; left: 50%; transform: translateX(-50%) rotate(45deg); }
+  #base-home > span { transform: rotate(-45deg); }
+  #base-1 { right: 4%; top: 50%; transform: translateY(-50%) rotate(45deg); }
+  #base-1 > span { transform: rotate(-45deg); }
+  #base-2 { top: 4%; left: 50%; transform: translateX(-50%) rotate(45deg); }
+  #base-2 > span { transform: rotate(-45deg); }
+  #base-3 { left: 4%; top: 50%; transform: translateY(-50%) rotate(45deg); }
+  #base-3 > span { transform: rotate(-45deg); }
+
+  /* ===== RUNNER MARKERS ===== */
+  .runner-marker {
+    position: absolute;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 2px solid white;
+    box-shadow: 0 0 8px rgba(241,196,15,0.8);
+    pointer-events: none;
+    transition: all 0.5s ease;
+    display: none;
+  }
+  #runner-1 { right: 0%; top: 40%; }
+  #runner-2 { top: 0%; left: 40%; }
+  #runner-3 { left: 0%; top: 40%; }
+
+  /* ===== PHASE INFO ===== */
+  #phase-info {
+    width: 100%;
+    text-align: center;
+    padding: 10px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    font-size: 0.88rem;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.5;
+  }
+  #phase-info .role-tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 2px;
+    margin-right: 6px;
+  }
+  .tag-pitcher { background: var(--red); color: white; }
+  .tag-batter { background: var(--green-light); color: white; }
+
+  /* ===== ACTION AREA ===== */
+  #action-area { width: 100%; }
+
+  /* ===== PITCHER PLACEMENT ===== */
+  #pitcher-ui { display: none; flex-direction: column; gap: 8px; width: 100%; }
+  #pitcher-ui p { text-align: center; font-size: 0.82rem; color: var(--gray); }
+  #pitcher-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .pitcher-slot {
+    padding: 14px;
+    border-radius: 8px;
+    border: 2px dashed rgba(255,255,255,0.2);
+    text-align: center;
+    cursor: pointer;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+    background: rgba(255,255,255,0.03);
+  }
+  .pitcher-slot:hover { border-color: var(--gold); background: rgba(241,196,15,0.08); }
+  .pitcher-slot.selected-hit { border-color: var(--green-light); background: rgba(45,138,68,0.15); color: var(--green-light); }
+  .pitcher-slot.selected-out { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); color: var(--cream); }
+  #pitcher-confirm { display: none; }
+
+  /* ===== RESULT OVERLAY ===== */
+  #result-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  #result-overlay.show { display: flex; }
+  #result-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 5rem;
+    letter-spacing: 8px;
+    text-align: center;
+    animation: popIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+  }
+  #result-text.hit { color: var(--green-light); text-shadow: 0 0 40px rgba(45,138,68,0.8); }
+  #result-text.homer { color: var(--gold); text-shadow: 0 0 40px rgba(241,196,15,0.8); }
+  #result-text.out { color: var(--red); text-shadow: 0 0 40px rgba(192,57,43,0.8); }
+  #result-sub { font-size: 1rem; color: var(--gray); text-align: center; }
+  #result-next { margin-top: 8px; }
+
+  @keyframes popIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ===== PREDICT HR ===== */
+  #predict-hr-btn {
+    display: none;
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 2px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  #predict-hr-btn:hover { background: rgba(241,196,15,0.1); }
+  #predict-hr-btn.used { opacity: 0.3; cursor: default; pointer-events: none; }
+  #predict-hr-btn.active { background: rgba(241,196,15,0.2); }
+
+  /* ===== GAME OVER ===== */
+  #gameover-screen { display: none; }
+  #winner-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    letter-spacing: 5px;
+    color: var(--gold);
+    text-align: center;
+  }
+
+  /* ===== WAITING ===== */
+  .waiting-dots::after {
+    content: '';
+    animation: dots 1.5s infinite;
+  }
+  @keyframes dots {
+    0%,20% { content: '.'; }
+    40% { content: '..'; }
+    60%,100% { content: '...'; }
+  }
+
+  /* ===== TOAST ===== */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: rgba(241,196,15,0.9);
+    color: var(--dark);
+    padding: 10px 24px;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    transition: transform 0.3s;
+    z-index: 200;
+    white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  .divider { width: 100%; height: 1px; background: rgba(255,255,255,0.08); }
+
+  /* ===== SCORE TABLE ===== */
+  .score-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .score-table th, .score-table td {
+    padding: 6px 10px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .score-table th { color: var(--gray); font-weight: normal; }
+  .score-table td { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>HIT &amp; OUT</h1>
+  <div id="status-bar">マインドベースボール</div>
+</header>
+
+<!-- ===== LOBBY ===== -->
+<div id="screen-lobby" class="screen active">
+  <div class="card">
+    <h2>新しいゲーム</h2>
+    <input type="text" id="name-input" placeholder="あなたの名前" maxlength="10">
+    <button class="btn btn-primary" onclick="createRoom()">ルームを作る</button>
+  </div>
+  <div class="card">
+    <h2>参加する</h2>
+    <input type="text" id="room-input" placeholder="ルームコード" maxlength="6" style="text-transform:uppercase">
+    <button class="btn btn-secondary" onclick="joinRoom()">参加</button>
+  </div>
+</div>
+
+<!-- ===== WAITING ===== -->
+<div id="screen-waiting" class="screen">
+  <div class="card">
+    <h2>ルームコード</h2>
+    <div class="room-code" id="room-code-display" onclick="copyCode()">------</div>
+    <div class="copy-hint">タップでコピー</div>
+    <p style="font-size:0.82rem;color:var(--gray);margin-top:12px">相手にコードを共有してください</p>
+    <p class="waiting-dots" style="margin-top:8px;color:var(--cream)">対戦相手を待っています</p>
+  </div>
+</div>
+
+<!-- ===== GAME ===== -->
+<div id="screen-game" class="screen">
+
+  <!-- スコアボード -->
+  <div id="scoreboard">
+    <div class="score-player">
+      <div class="score-name" id="p0-name">-</div>
+      <div class="score-pts" id="p0-score">0</div>
+    </div>
+    <div class="score-mid">
+      <div class="inning-label">INNING</div>
+      <span class="inning-num" id="inning-num">1</span>
+    </div>
+    <div class="score-player">
+      <div class="score-name" id="p1-name">-</div>
+      <div class="score-pts" id="p1-score">0</div>
+    </div>
+  </div>
+
+  <!-- アウトカウンター -->
+  <div id="out-counter">
+    <div class="out-circle" id="out0"></div>
+    <div class="out-circle" id="out1"></div>
+    <div class="out-circle" id="out2"></div>
+    <span style="font-size:0.75rem;color:var(--gray);align-self:center;margin-left:4px">OUT</span>
+  </div>
+
+  <!-- フィールド -->
+  <div id="field-wrap">
+    <svg id="field-svg" viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg">
+      <!-- 外野グリーン -->
+      <rect width="340" height="340" fill="#1a3d1f" rx="12"/>
+      <!-- 内野ダート (ダイヤ形) -->
+      <polygon points="170,30 310,170 170,310 30,170" fill="#9b6a35" opacity="0.5"/>
+      <!-- 塁間ライン -->
+      <line x1="170" y1="30" x2="310" y2="170" stroke="#c8843a" stroke-width="1" opacity="0.4"/>
+      <line x1="310" y1="170" x2="170" y2="310" stroke="#c8843a" stroke-width="1" opacity="0.4"/>
+      <line x1="170" y1="310" x2="30" y2="170" stroke="#c8843a" stroke-width="1" opacity="0.4"/>
+      <line x1="30" y1="170" x2="170" y2="30" stroke="#c8843a" stroke-width="1" opacity="0.4"/>
+      <!-- マウンド -->
+      <circle cx="170" cy="170" r="18" fill="#8b5e2a" opacity="0.6"/>
+      <circle cx="170" cy="170" r="6" fill="#c8843a" opacity="0.8"/>
+    </svg>
+    <!-- ベースボタン -->
+    <button class="base-btn" id="base-2" onclick="selectBase(1)"><span>2塁<br>⬡</span></button>
+    <button class="base-btn" id="base-3" onclick="selectBase(2)"><span>3塁<br>⬡</span></button>
+    <button class="base-btn" id="base-1" onclick="selectBase(0)"><span>1塁<br>⬡</span></button>
+    <button class="base-btn" id="base-home" onclick="selectBase(3)"><span>本塁<br>⬡</span></button>
+    <!-- ランナーマーカー -->
+    <div class="runner-marker" id="runner-1"></div>
+    <div class="runner-marker" id="runner-2"></div>
+    <div class="runner-marker" id="runner-3"></div>
+  </div>
+
+  <!-- フェーズ情報 -->
+  <div id="phase-info">準備中...</div>
+
+  <!-- 予告ホームランボタン -->
+  <button id="predict-hr-btn" onclick="predictHomerun()">⚡ 予告ホームラン</button>
+
+  <!-- アクションエリア -->
+  <div id="action-area">
+    <!-- ピッチャーUI -->
+    <div id="pitcher-ui">
+      <p>◎（ヒット）を置く塁を選んでください</p>
+      <div id="pitcher-grid">
+        <div class="pitcher-slot" id="slot-0" onclick="pitcherSelectBase(0)">1塁</div>
+        <div class="pitcher-slot" id="slot-1" onclick="pitcherSelectBase(1)">2塁</div>
+        <div class="pitcher-slot" id="slot-2" onclick="pitcherSelectBase(2)">3塁</div>
+        <div class="pitcher-slot" id="slot-3" onclick="pitcherSelectBase(3)">本塁（HR）</div>
+      </div>
+      <button class="btn btn-primary" id="pitcher-confirm" onclick="confirmPlacement()">配置を確定する</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== RESULT OVERLAY ===== -->
+<div id="result-overlay">
+  <div id="result-text">HIT!</div>
+  <div id="result-sub"></div>
+  <button class="btn btn-primary" id="result-next" onclick="closeResult()" style="max-width:200px">続ける</button>
+</div>
+
+<!-- ===== GAME OVER ===== -->
+<div id="gameover-screen" class="screen">
+  <div class="card">
+    <div id="winner-text">-</div>
+    <div style="margin-top:12px;font-size:0.85rem;color:var(--gray)">最終スコア</div>
+    <table class="score-table" style="margin-top:8px">
+      <tr><th id="go-p0-name">-</th><th>vs</th><th id="go-p1-name">-</th></tr>
+      <tr><td id="go-p0-score">0</td><td></td><td id="go-p1-score">0</td></tr>
+    </table>
+    <button class="btn btn-secondary" onclick="backToLobby()" style="margin-top:16px">ロビーに戻る</button>
+  </div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, get, onValue, update, remove } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC6qnV58Dm-IxCgVzw2oVa1PtwqacOhe0k",
+  authDomain: "hit-out.firebaseapp.com",
+  databaseURL: "https://hit-out-default-rtdb.firebaseio.com",
+  projectId: "hit-out",
+  storageBucket: "hit-out.firebasestorage.app",
+  messagingSenderId: "911937142449",
+  appId: "1:911937142449:web:bc3a39195408ed74022c90",
+  measurementId: "G-SCQDY0HKTG"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ===== STATE =====
+let myId = null; // 0 or 1
+let roomId = null;
+let gameState = null;
+let unsubscribe = null;
+let myName = '';
+let pitcherSelection = null; // 選んだ塁index
+
+// 塁名
+const BASE_NAMES = ['1塁', '2塁', '3塁', '本塁'];
+
+// ===== UTILS =====
+function genRoomId() {
+  return Math.random().toString(36).substr(2,6).toUpperCase();
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showToast(msg, duration=2000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function setStatus(msg) {
+  document.getElementById('status-bar').textContent = msg;
+}
+
+// ===== LOBBY =====
+window.createRoom = async function() {
+  myName = document.getElementById('name-input').value.trim() || 'プレイヤー1';
+  roomId = genRoomId();
+  myId = 0;
+
+  const initialState = {
+    players: { 0: { name: myName, score: 0, predictHR: false }, 1: null },
+    phase: 'waiting', // waiting | pitcher_place | batter_select | result | inning_change | gameover
+    inning: 1,
+    topBottom: 0, // 0=表(p0バッター), 1=裏(p1バッター)
+    outs: 0,
+    runners: [false, false, false], // 1塁,2塁,3塁
+    pitcherBase: null,
+    predictActive: false,
+    resultType: null, // hit|homer|out
+    resultBase: null,
+    turn: 0, // pitcher player index
+  };
+
+  await set(ref(db, `rooms/${roomId}`), initialState);
+  document.getElementById('room-code-display').textContent = roomId;
+  showScreen('screen-waiting');
+  listenRoom();
+};
+
+window.joinRoom = async function() {
+  myName = document.getElementById('name-input').value.trim() || 'プレイヤー2';
+  const code = document.getElementById('room-input').value.trim().toUpperCase();
+  if (!code) { showToast('コードを入力してください'); return; }
+
+  const snap = await get(ref(db, `rooms/${code}`));
+  if (!snap.exists()) { showToast('ルームが見つかりません'); return; }
+
+  roomId = code;
+  myId = 1;
+
+  await update(ref(db, `rooms/${roomId}/players/1`), { name: myName, score: 0, predictHR: false });
+  // ゲーム開始
+  await update(ref(db, `rooms/${roomId}`), { phase: 'pitcher_place', turn: 1 }); // 表は p1がピッチャー
+  showScreen('screen-game');
+  listenRoom();
+};
+
+window.copyCode = function() {
+  navigator.clipboard.writeText(roomId).then(() => showToast('コピーしました！'));
+};
+
+// ===== LISTEN =====
+function listenRoom() {
+  const r = ref(db, `rooms/${roomId}`);
+  unsubscribe = onValue(r, snap => {
+    if (!snap.exists()) return;
+    gameState = snap.val();
+    renderGame();
+  });
+}
+
+// ===== RENDER =====
+function renderGame() {
+  const gs = gameState;
+  if (!gs || !gs.players || !gs.players[0] || !gs.players[1]) return;
+
+  if (gs.phase === 'waiting') return;
+
+  // 画面切替
+  if (gs.phase === 'gameover') {
+    renderGameOver();
+    return;
+  }
+
+  showScreen('screen-game');
+
+  // スコアボード
+  document.getElementById('p0-name').textContent = gs.players[0].name;
+  document.getElementById('p1-name').textContent = gs.players[1].name;
+  document.getElementById('p0-score').textContent = gs.players[0].score;
+  document.getElementById('p1-score').textContent = gs.players[1].score;
+  document.getElementById('inning-num').textContent = gs.inning + (gs.topBottom === 0 ? '表' : '裏');
+
+  // アウト
+  for (let i = 0; i < 3; i++) {
+    document.getElementById(`out${i}`).classList.toggle('lit', i < gs.outs);
+  }
+
+  // ランナー
+  const runners = gs.runners || [false,false,false];
+  for (let i = 0; i < 3; i++) {
+    document.getElementById(`runner-${i+1}`).style.display = runners[i] ? 'block' : 'none';
+  }
+
+  // 塁ボタンリセット
+  ['base-home','base-1','base-2','base-3'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('revealed-hit','revealed-out','homer');
+    el.disabled = true;
+  });
+
+  // 役割
+  // topBottom=0: p0がバッター、p1がピッチャー
+  // topBottom=1: p1がバッター、p0がピッチャー
+  const batterIdx = gs.topBottom === 0 ? 0 : 1;
+  const pitcherIdx = gs.topBottom === 0 ? 1 : 0;
+  const iAmBatter = myId === batterIdx;
+  const iAmPitcher = myId === pitcherIdx;
+
+  // フェーズ別表示
+  const phaseInfo = document.getElementById('phase-info');
+  const pitcherUI = document.getElementById('pitcher-ui');
+  const predictBtn = document.getElementById('predict-hr-btn');
+  const confirmBtn = document.getElementById('pitcher-confirm');
+
+  pitcherUI.style.display = 'none';
+  predictBtn.style.display = 'none';
+
+  if (gs.phase === 'pitcher_place') {
+    if (iAmPitcher) {
+      phaseInfo.innerHTML = `<span class="role-tag tag-pitcher">PITCHER</span>◎を置く塁を選んでください`;
+      pitcherUI.style.display = 'flex';
+      confirmBtn.style.display = gs.pitcherBase !== null ? 'block' : 'none';
+      // スロット表示
+      for (let i = 0; i < 4; i++) {
+        const slot = document.getElementById(`slot-${i}`);
+        slot.className = 'pitcher-slot';
+        if (pitcherSelection === i) {
+          slot.classList.add(i === 3 ? 'selected-hit' : 'selected-hit');
+        }
+      }
+    } else {
+      phaseInfo.innerHTML = `<span class="role-tag tag-batter">BATTER</span>相手が配置中<span class="waiting-dots"></span>`;
+
+      // 予告ホームラン
+      const myPredictUsed = gs.players[myId].predictHR;
+      if (!myPredictUsed) {
+        predictBtn.style.display = 'block';
+        predictBtn.classList.toggle('active', gs.predictActive);
+        predictBtn.classList.remove('used');
+      } else {
+        predictBtn.style.display = 'block';
+        predictBtn.classList.add('used');
+      }
+    }
+  } else if (gs.phase === 'batter_select') {
+    if (iAmBatter) {
+      phaseInfo.innerHTML = `<span class="role-tag tag-batter">BATTER</span>カバーを1つ選んでください`;
+      // 塁ボタン有効化
+      ['base-home','base-1','base-2','base-3'].forEach(id => {
+        document.getElementById(id).disabled = false;
+      });
+    } else {
+      phaseInfo.innerHTML = `<span class="role-tag tag-pitcher">PITCHER</span>バッターが選択中<span class="waiting-dots"></span>`;
+    }
+  } else if (gs.phase === 'result') {
+    showResult(gs);
+  } else if (gs.phase === 'inning_change') {
+    phaseInfo.innerHTML = `イニング交代 — タップして続ける`;
+    if (myId === batterIdx) {
+      // 誰でも続けられる
+    }
+  }
+}
+
+// ===== PITCHER =====
+window.pitcherSelectBase = function(idx) {
+  pitcherSelection = idx;
+  for (let i = 0; i < 4; i++) {
+    const slot = document.getElementById(`slot-${i}`);
+    slot.className = 'pitcher-slot';
+    if (i === idx) slot.classList.add('selected-hit');
+  }
+  document.getElementById('pitcher-confirm').style.display = 'block';
+};
+
+window.confirmPlacement = async function() {
+  if (pitcherSelection === null) return;
+  await update(ref(db, `rooms/${roomId}`), {
+    pitcherBase: pitcherSelection,
+    phase: 'batter_select'
+  });
+  pitcherSelection = null;
+};
+
+// ===== PREDICT HR =====
+window.predictHomerun = async function() {
+  if (!gameState) return;
+  const used = gameState.players[myId].predictHR;
+  if (used) return;
+  await update(ref(db, `rooms/${roomId}`), {
+    predictActive: !gameState.predictActive
+  });
+};
+
+// ===== BATTER SELECT =====
+// base-home=3(本塁), base-1=0(1塁), base-2=1(2塁), base-3=2(3塁)
+const BASE_BTN_MAP = { 'base-home': 3, 'base-1': 0, 'base-2': 1, 'base-3': 2 };
+
+window.selectBase = async function(btnBaseIdx) {
+  if (!gameState) return;
+  const gs = gameState;
+  const batterIdx = gs.topBottom === 0 ? 0 : 1;
+  if (myId !== batterIdx) return;
+  if (gs.phase !== 'batter_select') return;
+
+  const selected = btnBaseIdx; // 0=1塁,1=2塁,2=3塁,3=本塁
+  const hitBase = gs.pitcherBase;
+  const isHit = selected === hitBase;
+  const isHomer = isHit && hitBase === 3;
+  const predictActive = gs.predictActive;
+
+  // 予告ホームラン処理
+  let resultType, advanceBases;
+  if (isHomer) {
+    resultType = 'homer';
+  } else if (isHit) {
+    resultType = 'hit';
+  } else {
+    resultType = 'out';
+  }
+
+  // 予告ホームラン：◎がヒットかつ宣言中なら即ホームラン
+  if (predictActive && isHit && !isHomer) {
+    resultType = 'homer';
+    // 予告使用済み
+    await update(ref(db, `rooms/${roomId}/players/${batterIdx}`), { predictHR: true });
+  } else if (predictActive && isHomer) {
+    await update(ref(db, `rooms/${roomId}/players/${batterIdx}`), { predictHR: true });
+  }
+
+  await update(ref(db, `rooms/${roomId}`), {
+    phase: 'result',
+    resultType: resultType,
+    resultBase: hitBase,
+    selectedBase: selected,
+    predictActive: false,
+  });
+};
+
+// ===== RESULT =====
+function showResult(gs) {
+  const overlay = document.getElementById('result-overlay');
+  const txt = document.getElementById('result-text');
+  const sub = document.getElementById('result-sub');
+
+  overlay.classList.add('show');
+
+  if (gs.resultType === 'homer') {
+    txt.textContent = 'HOME RUN!';
+    txt.className = 'homer';
+    sub.textContent = '全ランナーが生還します';
+  } else if (gs.resultType === 'hit') {
+    txt.textContent = 'HIT!';
+    txt.className = 'hit';
+    sub.textContent = BASE_NAMES[gs.resultBase] + 'ヒット';
+  } else {
+    txt.textContent = 'OUT!';
+    txt.className = 'out';
+    sub.textContent = 'アウト！';
+  }
+}
+
+window.closeResult = async function() {
+  document.getElementById('result-overlay').classList.remove('show');
+  if (!gameState) return;
+  const gs = gameState;
+
+  const batterIdx = gs.topBottom === 0 ? 0 : 1;
+  const pitcherIdx = gs.topBottom === 0 ? 1 : 0;
+
+  let runners = [...(gs.runners || [false,false,false])];
+  let outs = gs.outs;
+  let score0 = gs.players[0].score;
+  let score1 = gs.players[1].score;
+  let inning = gs.inning;
+  let topBottom = gs.topBottom;
+  let phase = 'pitcher_place';
+  let scored = 0;
+
+  if (gs.resultType === 'out') {
+    outs++;
+  } else if (gs.resultType === 'homer') {
+    // 全ランナー生還
+    scored = runners.filter(Boolean).length + 1;
+    runners = [false, false, false];
+  } else {
+    // ヒット
+    const hitBase = gs.resultBase; // 0=1塁,1=2塁,2=3塁
+    // ノーアウトなら全ランナー押し出し, アウトありなら押し出し式
+    if (outs === 0) {
+      // 全ランナー hitBase分進む
+      let newRunners = [false,false,false];
+      for (let i = 2; i >= 0; i--) {
+        if (runners[i]) {
+          const newPos = i + hitBase + 1;
+          if (newPos >= 3) scored++;
+          else newRunners[newPos] = true;
+        }
+      }
+      // バッター自身
+      if (hitBase < 3) newRunners[hitBase] = true;
+      runners = newRunners;
+    } else {
+      // 押し出し式
+      let newRunners = [false,false,false];
+      for (let i = 2; i >= 0; i--) {
+        if (runners[i]) {
+          const newPos = i + 1;
+          if (newPos >= 3) scored++;
+          else newRunners[newPos] = true;
+        }
+      }
+      newRunners[0] = true; // バッターは1塁
+      runners = newRunners;
+    }
+  }
+
+  // 得点加算
+  if (batterIdx === 0) score0 += scored;
+  else score1 += scored;
+
+  // 3アウト判定
+  if (outs >= 3) {
+    outs = 0;
+    runners = [false,false,false];
+    if (topBottom === 0) {
+      topBottom = 1;
+      phase = 'pitcher_place';
+    } else {
+      // イニング終了
+      if (inning >= 3) {
+        // ゲーム終了 or 延長
+        if (score0 === score1) {
+          // 延長: ノーアウト2塁スタート
+          inning++;
+          topBottom = 0;
+          runners = [false,true,false];
+          phase = 'pitcher_place';
+        } else {
+          phase = 'gameover';
+        }
+      } else {
+        inning++;
+        topBottom = 0;
+        phase = 'pitcher_place';
+      }
+    }
+  }
+
+  const updates = {
+    phase,
+    outs,
+    runners,
+    inning,
+    topBottom,
+    pitcherBase: null,
+    resultType: null,
+    resultBase: null,
+    selectedBase: null,
+    predictActive: false,
+    'players/0/score': score0,
+    'players/1/score': score1,
+  };
+
+  // ピッチャー交代に応じてturn更新
+  if (phase === 'pitcher_place') {
+    updates.turn = topBottom === 0 ? 1 : 0;
+  }
+
+  await update(ref(db, `rooms/${roomId}`), updates);
+};
+
+// ===== GAMEOVER =====
+function renderGameOver() {
+  const gs = gameState;
+  showScreen('screen-gameover');
+  document.getElementById('gameover-screen').style.display = 'flex';
+
+  const p0 = gs.players[0];
+  const p1 = gs.players[1];
+  document.getElementById('go-p0-name').textContent = p0.name;
+  document.getElementById('go-p1-name').textContent = p1.name;
+  document.getElementById('go-p0-score').textContent = p0.score;
+  document.getElementById('go-p1-score').textContent = p1.score;
+
+  let winner;
+  if (p0.score > p1.score) winner = `${p0.name} の勝利！`;
+  else if (p1.score > p0.score) winner = `${p1.name} の勝利！`;
+  else winner = '引き分け';
+  document.getElementById('winner-text').textContent = winner;
+}
+
+window.backToLobby = async function() {
+  if (unsubscribe) unsubscribe();
+  await remove(ref(db, `rooms/${roomId}`));
+  roomId = null;
+  myId = null;
+  gameState = null;
+  pitcherSelection = null;
+  showScreen('screen-lobby');
+};
+
+// ===== WAITING SCREEN → GAME =====
+// waitingの間もlisten済み。p1参加でphaseがpitcher_placeになったらgame画面へ
+const _origRender = renderGame;
+// すでにonValueで監視中。phase=waiting→screen-waitingはrender内で処理
+// phase変わったら自動でscreen-gameへ
+
+</script>
+</body>
+</html>
