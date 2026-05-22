@@ -778,7 +778,11 @@ function renderGame() {
   }
 
   // ランナー
-  const runners = gs.runners || [false,false,false];
+  const runners = [
+    gs.runners ? !!gs.runners[0] : false,
+    gs.runners ? !!gs.runners[1] : false,
+    gs.runners ? !!gs.runners[2] : false,
+  ];
   for (let i = 0; i < 3; i++) {
     document.getElementById(`runner-${i+1}`).style.display = runners[i] ? 'block' : 'none';
   }
@@ -813,7 +817,7 @@ function renderGame() {
       pitcherUI.style.display = 'flex';
       confirmBtn.style.display = pitcherSelection !== null ? 'block' : 'none';
       // スロット表示（usedBasesは選択不可）
-      const usedBases = gs.usedBases || [];
+      const usedBases = gs.usedBases ? Object.values(gs.usedBases) : [];
       const SLOT_NAMES = ['1塁', '2塁', '3塁', '本塁（HR）'];
       for (let i = 0; i < 4; i++) {
         const slot = document.getElementById(`slot-${i}`);
@@ -845,7 +849,7 @@ function renderGame() {
     }
   } else if (gs.phase === 'batter_select') {
     if (iAmBatter) {
-      const usedBases = gs.usedBases || [];
+      const usedBases = gs.usedBases ? Object.values(gs.usedBases) : [];
       const BTN_IDX = { 'base-1': 0, 'base-2': 1, 'base-3': 2, 'base-home': 3 };
       const BASE_LABEL = { 'base-1': '1塁\n⬡', 'base-2': '2塁\n⬡', 'base-3': '3塁\n⬡', 'base-home': '本塁\n⬡' };
       phaseInfo.innerHTML = `<span class="role-tag tag-batter">BATTER</span>カバーを1つ選んでください`;
@@ -979,13 +983,17 @@ window.closeResult = async function() {
   // バッター側だけがDB更新する（ピッチャー側は画面を閉じるだけ）
   if (myId !== batterIdx) return;
 
-  let runners = [...(gs.runners || [false,false,false])];
+  let runners = [
+    gs.runners ? !!gs.runners[0] : false,
+    gs.runners ? !!gs.runners[1] : false,
+    gs.runners ? !!gs.runners[2] : false,
+  ];
   let outs = gs.outs;
   let score0 = gs.players[0].score;
   let score1 = gs.players[1].score;
   let inning = gs.inning;
   let topBottom = gs.topBottom;
-  let usedBases = [...(gs.usedBases || [])];
+  let usedBases = gs.usedBases ? Object.values(gs.usedBases) : [];
   let scored = 0;
   let phase;
 
