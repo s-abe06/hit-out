@@ -371,6 +371,70 @@
 
   /* ===== SCORE TABLE ===== */
   .score-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  /* ===== RULES ===== */
+  #screen-rules { max-width: 480px; gap: 0; padding: 0; }
+  .rules-wrap {
+    width: 100%;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    max-height: calc(100vh - 100px);
+  }
+  .rules-section {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .rules-section h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: 3px;
+    color: var(--gold);
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(241,196,15,0.2);
+    padding-bottom: 6px;
+  }
+  .rules-section p, .rules-section li {
+    font-size: 0.84rem;
+    line-height: 1.8;
+    color: rgba(245,240,232,0.85);
+  }
+  .rules-section ul { padding-left: 16px; }
+  .rules-section li { margin-bottom: 4px; }
+  .rule-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-right: 4px;
+  }
+  .badge-hit { background: var(--green-light); color: white; }
+  .badge-out { background: var(--red); color: white; }
+  .badge-homer { background: var(--gold); color: var(--dark); }
+  .badge-predict { background: #8e44ad; color: white; }
+  .flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .step-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.2rem;
+    color: var(--gold);
+    min-width: 24px;
+    line-height: 1.4;
+  }
+  .step-text { font-size: 0.84rem; line-height: 1.7; color: rgba(245,240,232,0.85); }
+
   .score-table th, .score-table td {
     padding: 6px 10px;
     text-align: center;
@@ -398,6 +462,70 @@
     <h2>参加する</h2>
     <input type="text" id="room-input" placeholder="ルームコード" maxlength="6" style="text-transform:uppercase">
     <button class="btn btn-secondary" onclick="joinRoom()">参加</button>
+  </div>
+  <button class="btn btn-secondary" onclick="showScreen('screen-rules')" style="opacity:0.7">📖 ルール説明</button>
+</div>
+
+<!-- ===== RULES ===== -->
+<div id="screen-rules" class="screen">
+  <div class="rules-wrap">
+    <div style="display:flex;align-items:center;gap:10px;padding:4px 0 8px">
+      <button class="btn btn-secondary" onclick="showScreen('screen-lobby')" style="width:auto;padding:8px 18px;font-size:0.9rem">← 戻る</button>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:4px;color:var(--gold)">HOW TO PLAY</span>
+    </div>
+
+    <div class="rules-section">
+      <h3>概要</h3>
+      <p>野球をテーマにした2人用の心理戦ゲームです。ピッチャーが隠した◎マーカーをバッターが当てる、3イニング制の読み合いを楽しめます。</p>
+    </div>
+
+    <div class="rules-section">
+      <h3>ゲームの流れ</h3>
+      <div class="flow-steps">
+        <div class="flow-step"><span class="step-num">1</span><span class="step-text"><strong>準備</strong>：先攻（バッター）・後攻（ピッチャー）を決める</span></div>
+        <div class="flow-step"><span class="step-num">2</span><span class="step-text"><strong>ピッチャーの配置</strong>：フィールドの4ヶ所（1塁・2塁・3塁・本塁）のうち1ヶ所に◎を、残り3ヶ所に×を隠す</span></div>
+        <div class="flow-step"><span class="step-num">3</span><span class="step-text"><strong>バッターの選択</strong>：4ヶ所のうち1つを選んでオープンにする</span></div>
+        <div class="flow-step"><span class="step-num">4</span><span class="step-text"><strong>判定</strong>：◎ならヒット・ホームラン、×ならアウト</span></div>
+        <div class="flow-step"><span class="step-num">5</span><span class="step-text"><strong>ヒットorアウトが出たら</strong>：全マーカーを回収してピッチャーが再配置</span></div>
+        <div class="flow-step"><span class="step-num">6</span><span class="step-text"><strong>3アウト</strong>で攻守交代、3イニング終了で得点の多い方が勝ち</span></div>
+      </div>
+    </div>
+
+    <div class="rules-section">
+      <h3>判定の種類</h3>
+      <ul>
+        <li><span class="rule-badge badge-hit">ヒット</span>選んだ場所に◎があった（1〜3塁）→ その塁にランナーが進む</li>
+        <li><span class="rule-badge badge-homer">ホームラン</span>選んだ場所に◎があった（本塁）→ 全ランナーが生還して得点！</li>
+        <li><span class="rule-badge badge-out">アウト</span>選んだ場所が×だった → アウトカウント+1</li>
+      </ul>
+    </div>
+
+    <div class="rules-section">
+      <h3>ランナーの進め方</h3>
+      <ul>
+        <li><strong>ノーアウトのとき</strong>：全ランナーがヒットした塁数ぶん進む（通常の野球と同じ）</li>
+        <li><strong>アウトがあるとき</strong>：押し出し式でのみランナーが1つ進む</li>
+      </ul>
+    </div>
+
+    <div class="rules-section">
+      <h3>予告ホームラン</h3>
+      <ul>
+        <li><span class="rule-badge badge-predict">特別ルール</span>攻守交代ごとに1回だけ使える</li>
+        <li>ピッチャーが配置する<strong>前に</strong>宣言する必要がある</li>
+        <li>宣言後に◎を当てたら、場所に関係なく<strong>即ホームラン</strong>になる</li>
+      </ul>
+    </div>
+
+    <div class="rules-section">
+      <h3>延長戦</h3>
+      <ul>
+        <li>3イニング終了時に同点だった場合、延長戦へ</li>
+        <li>延長戦は<strong>ノーアウト・ランナー2塁</strong>の状態からスタート</li>
+      </ul>
+    </div>
+
+    <button class="btn btn-primary" onclick="showScreen('screen-lobby')">ゲームをはじめる</button>
   </div>
 </div>
 
@@ -547,7 +675,7 @@ function genRoomId() {
   return Math.random().toString(36).substr(2,6).toUpperCase();
 }
 
-function showScreen(id) {
+window.showScreen = function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
