@@ -703,7 +703,7 @@ window.createRoom = async function() {
     inning: 1,
     topBottom: 0, // 0=表(p0バッター), 1=裏(p1バッター)
     outs: 0,
-    runners: [false, false, false], // 1塁,2塁,3塁
+    runners: { 0: false, 1: false, 2: false }, // 1塁,2塁,3塁
     pitcherBase: null,
     predictActive: false,
     resultType: null, // hit|homer|out
@@ -1071,10 +1071,12 @@ window.closeResult = async function() {
   const updates = {
     phase,
     outs,
-    runners,
+    'runners/0': runners[0],
+    'runners/1': runners[1],
+    'runners/2': runners[2],
     inning,
     topBottom,
-    usedBases,
+    'usedBases': usedBases,
     resultType: null,
     resultBase: null,
     selectedBase: null,
